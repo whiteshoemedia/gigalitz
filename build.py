@@ -222,19 +222,17 @@ class Build:
 	def createSitemap(self):
 		template = """
 			<?xml version="1.0" encoding="UTF-8"?>
-	 		<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+			<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 	 			{% for page in pages %}
-				<url>
-					<loc>{{config.site.url}}/{{page}}</loc>
-					<lastmod>{{date}}</lastmod>
-					<changefreq>daily</changefreq>
-					<priority>0.8</priority>
-				</url>
+					<url>
+						<loc>{{config.site.url}}/{{page}}</loc>
+						<lastmod>{{date}}</lastmod>
+					</url>
 				{% endfor %}
 			</urlset>
 		"""
 
-		template = self.env.from_string(template)
+		template = self.env.from_string(template.strip())
 		
 		context = {
 			'pages': self.pages,
