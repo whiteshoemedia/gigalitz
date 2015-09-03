@@ -8,12 +8,16 @@ import dbm
 import yaml
 import coffeescript
 import jinja2_highlight
+import collections
 import datetime
 import re
 
 
 class NoConfigFileFound(Exception):
 	pass
+
+
+BlogPost = collections.namedtuple('BlogPost', ['title', 'date', 'author', 'content', 'tags', 'meta', 'file'])
 
 
 try:
@@ -31,6 +35,8 @@ contentDir = 'content/'
 outputDir = 'build/'
 dataDir = 'data/'
 staticDir = 'static/'
+blogDir = 'blog/'
+templateDir = 'templates/'
 
 
 class Build:
@@ -59,11 +65,13 @@ class Build:
 	# --------------------------------------------------------------------------
 	def loadData(self):
 
+		# Load config file
 		try:
 			self.globalData['config'] = yaml.safe_load(open(os.path.join(dataDir, 'config.yml'), 'r'))
 		except:
 			raise NoConfigFileFound()
 
+		# Load static data files
 		for data in os.listdir(dataDir):
 			name = data[0: data.find('.')]
 			print('Loading:', name)
@@ -72,6 +80,29 @@ class Build:
 				self.globalData[name] = list(csv.reader(open(os.path.join(dataDir, data), 'r')))
 			elif data.endswith('.yml'):
 				self.globalData[name] = yaml.safe_load(open(os.path.join(dataDir, data), 'r'))
+
+		# Load blog posts if any
+		self.globalData['blog'] = []
+		for postfile in sorted(os.listdir(blogDir)):
+			content = open(os.path.join(blogDir, postfile), 'r').read()
+			
+			head = [m.start() for m in re.finditer('---', content)]
+			meta = {}
+
+			# Check if post has front matter
+			if len(head)>=2:
+				meta = yaml.safe_load(content[head[0]:head[1]])
+				content = content[head[1]+3:].strip()
+
+			parts = postfile[0:postfile.rfind('.')].split('-')
+			date = datetime.date(year=int(parts[0]), month=int(parts[1]), day=int(parts[2]))
+			title = meta.get('title', ' '.join(parts[3:]))
+			tags = meta.get('tags', [])
+			author = meta.get('author', None)
+
+			self.globalData['blog'].append(BlogPost(title=title, date=date, content=content, tags=tags, author=author, meta=meta, file=postfile))
+
+
 
 		self.globalData['created'] = datetime.datetime.now()
 
@@ -95,21 +126,32 @@ class Build:
 
 				print('Processing:', os.path.join(directory, content))
 
-				# Open page
-				data = open(os.path.join(directory, content), 'r').read()
-
+				self.__renderContentPage(directory, currentDir, content, content)
 				
-				# Render page 
-				template = self.env.from_string(data)
-				data = template.render(page=os.path.join(directory, content))
 
-				# Make it pretty
-				data = BeautifulSoup(data).prettify()
-				# Ugly hack to remove trailing spaces from the code tag
-				data = re.sub('\s+</code>', '</code>', data)
+		if len(self.globalData['blog']) and os.path.exists(os.path.join(templateDir, 'page.html')):
+			for post in self.globalData['blog']:
+				self.__renderContentPage(templateDir, outputDir, 'page.html', post.file, {'post': post})
 
-				# Save
-				open(os.path.join(currentDir, content), 'w+').write(data)
+
+	def __renderContentPage(self, inputDirectory, outputDirectory, inputFile, outputFile, context = {}):
+		# Open page
+		data = open(os.path.join(inputDirectory, inputFile), 'r').read()
+		
+		# Render page 
+		template = self.env.from_string(data)
+
+		context['page'] = os.path.join(inputDirectory, inputFile)
+		
+		data = template.render(context)
+
+		# Make it pretty
+		data = BeautifulSoup(data).prettify()
+		# Ugly hack to remove trailing spaces from the code tag
+		data = re.sub('\s+</code>', '</code>', data)
+
+		# Save
+		open(os.path.join(outputDirectory, outputFile), 'w+').write(data)
 
 	# --------------------------------------------------------------------------
 	# 3) Compile static data
