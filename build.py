@@ -51,6 +51,8 @@ class Build:
 		else:
 			self.cache = dbm.open('.cache', 'n')
 
+		self.pages = []
+
 	def __del__(self):
 		self.cache.close()
 
@@ -60,6 +62,9 @@ class Build:
 		self.renderContent()
 		self.compileStatic()
 
+		if self.config.get('sitemap', True):
+			self.createSitemap()
+
 	# --------------------------------------------------------------------------
 	# 1) Load data 
 	# --------------------------------------------------------------------------
@@ -67,7 +72,8 @@ class Build:
 
 		# Load config file
 		try:
-			self.globalData['config'] = yaml.safe_load(open(os.path.join(dataDir, 'config.yml'), 'r'))
+			self.config = yaml.safe_load(open(os.path.join(dataDir, 'config.yml'), 'r'))
+			self.globalData['config'] = self.config
 		except:
 			raise NoConfigFileFound()
 
@@ -151,7 +157,11 @@ class Build:
 		data = re.sub('\s+</code>', '</code>', data)
 
 		# Save
-		open(os.path.join(outputDirectory, outputFile), 'w+').write(data)
+		filename = os.path.join(outputDirectory, outputFile)
+		open(filename, 'w+').write(data)
+
+		self.pages.append(filename[filename.find('/')+1:])
+
 
 	# --------------------------------------------------------------------------
 	# 3) Compile static data
@@ -208,6 +218,35 @@ class Build:
 		self.cache[source] = lastModified
 
 		return res
+
+	def createSitemap(self):
+		template = """
+			<?xml version="1.0" encoding="UTF-8"?>
+	 		<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+	 			{% for page in pages %}
+				<url>
+					<loc>{{config.site.url}}/{{page}}</loc>
+					<lastmod>{{date}}</lastmod>
+					<changefreq>daily</changefreq>
+					<priority>0.8</priority>
+				</url>
+				{% endfor %}
+			</urlset>
+		"""
+
+		template = self.env.from_string(template)
+		
+		context = {
+			'pages': self.pages,
+			'date': datetime.datetime.now().date().strftime('%Y-%m-%d')
+		}
+		
+		data = template.render(pages=self.pages)
+
+		# Save
+		filename = os.path.join(outputDir, 'sitemap.xml')
+		open(filename, 'w+').write(data)
+
 
 
 if __name__ == '__main__':

@@ -1,0 +1,3 @@
+site:
+  sitemap: True
+  url: http://www.example.com
