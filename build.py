@@ -89,24 +89,25 @@ class Build:
 
 		# Load blog posts if any
 		self.globalData['blog'] = []
-		for postfile in sorted(os.listdir(blogDir)):
-			content = open(os.path.join(blogDir, postfile), 'r').read()
-			
-			head = [m.start() for m in re.finditer('---', content)]
-			meta = {}
+		if os.path.exists(blogDir):
+			for postfile in sorted(os.listdir(blogDir)):
+				content = open(os.path.join(blogDir, postfile), 'r').read()
+				
+				head = [m.start() for m in re.finditer('---', content)]
+				meta = {}
 
-			# Check if post has front matter
-			if len(head)>=2:
-				meta = yaml.safe_load(content[head[0]:head[1]])
-				content = content[head[1]+3:].strip()
+				# Check if post has front matter
+				if len(head)>=2:
+					meta = yaml.safe_load(content[head[0]:head[1]])
+					content = content[head[1]+3:].strip()
 
-			parts = postfile[0:postfile.rfind('.')].split('-')
-			date = datetime.date(year=int(parts[0]), month=int(parts[1]), day=int(parts[2]))
-			title = meta.get('title', ' '.join(parts[3:]))
-			tags = meta.get('tags', [])
-			author = meta.get('author', None)
+				parts = postfile[0:postfile.rfind('.')].split('-')
+				date = datetime.date(year=int(parts[0]), month=int(parts[1]), day=int(parts[2]))
+				title = meta.get('title', ' '.join(parts[3:]))
+				tags = meta.get('tags', [])
+				author = meta.get('author', None)
 
-			self.globalData['blog'].append(BlogPost(title=title, date=date, content=content, tags=tags, author=author, meta=meta, file=postfile))
+				self.globalData['blog'].append(BlogPost(title=title, date=date, content=content, tags=tags, author=author, meta=meta, file=postfile))
 
 
 
