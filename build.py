@@ -153,9 +153,10 @@ class Build:
 		data = template.render(context)
 
 		# Make it pretty
-		data = BeautifulSoup(data, "html5lib").prettify()
-		# Ugly hack to remove trailing spaces from the code tag
-		data = re.sub('\s+</code>', '</code>', data)
+		if self.config['site'].get('pretty', True):
+			data = BeautifulSoup(data, "html5lib").prettify()
+			# Ugly hack to remove trailing spaces from the code tag
+			data = re.sub('\s+</code>', '</code>', data)
 
 		# Save
 		filename = os.path.join(outputDirectory, outputFile)
