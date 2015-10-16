@@ -11,6 +11,7 @@ import jinja2_highlight
 import collections
 import datetime
 import re
+import flask
 
 
 class NoConfigFileFound(Exception):
@@ -37,6 +38,7 @@ dataDir = 'data/'
 staticDir = 'static/'
 blogDir = 'blog/'
 templateDir = 'templates/'
+dynamicDir = 'dynamic/'
 
 
 class Build:
@@ -187,14 +189,21 @@ class Build:
 
 				source = os.path.join(directory, file)
 				
-				if file.endswith('.sass'):
+				if file.endswith('.sass') or file.endswith('.scss'):
 					name = file
-					name = name.replace('.sass', '.css')
+				
+					if file.endswith('.sass'):
+						name = name.replace('.sass', '.css')
+					elif file.endswith('.scss'):
+						name = name.replace('.scss', '.css')
+
 					destination = os.path.join(currentDir, name)
+					
 					if self.shouldCompile(source, destination):
 						print('Compiling:', source)
 						data = sass.compile(string=open(source, 'r').read())
 						open(destination, 'w+').write(data)
+
 				elif file.endswith('.coffee'):
 					name = file.replace('.coffee', '.js')
 					destination = os.path.join(currentDir, name)
@@ -247,12 +256,53 @@ class Build:
 		filename = os.path.join(outputDir, 'sitemap.xml')
 		open(filename, 'w+').write(data)
 
+	def run(self):
+		
+		# Load config data
+		self.loadData()
+		self.cache.close()
 
+		# Load dynamic modules
+		self.modules = {}
+		if os.path.exists(dynamicDir):
+			for m in os.listdir(dynamicDir):
+				if m.endswith('.py'):
+					name = m[0:m.find('.')]
+					module = __import__('dynamic.'+name)
+					self.modules[name] = getattr(module, name)
+
+		# Create flask instance
+		app = flask.Flask(__name__, static_folder=None)
+
+		# Static file routing
+		@app.route('/<path:path>')
+		@app.route('/', defaults={'path': ''})
+		def static_server(path):
+			if (len(path)>0 and path[-1]=='/') or len(path)==0:
+				path = path+'index.html'
+			return flask.send_from_directory(outputDir, path)
+
+		# Python routing
+		@app.route('/dynamic/<path:path>', methods=['GET', 'POST'])
+		def dynamic_server(path, *args, **wargs):
+			m = path[0:-1]
+			
+			if m not in self.modules:
+				return 'Dynamic extension not found'
+			
+			return self.modules[m].run(*args, **wargs)
+			
+
+		# Initiate server
+		app.run(host=self.config['site'].get('host', '127.0.0.1'), 
+				port=self.config['site'].get('port', '8000'), debug=True)
 
 if __name__ == '__main__':
 	
 	if len(sys.argv) == 1:
 		Build().buildAll()
+	elif len(sys.argv) == 2 and sys.argv[1] == 'run':
+		Build().run()
 	else:
 		cache = not('--force' in sys.argv)
 		Build(cache=cache).buildAll()
