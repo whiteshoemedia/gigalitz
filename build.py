@@ -140,7 +140,7 @@ class Build:
 
 		if len(self.globalData['blog']) and os.path.exists(os.path.join(templateDir, 'page.html')):
 			for post in self.globalData['blog']:
-				self.__renderContentPage(templateDir, outputDir, 'page.html', post.file, {'post': post})
+				self.__renderContentPage(templateDir, os.path.join(outputDir, self.config['site'].get('blogDir', '')), 'page.html', post.file, {'post': post})
 
 
 	def __renderContentPage(self, inputDirectory, outputDirectory, inputFile, outputFile, context = {}):
@@ -203,6 +203,7 @@ class Build:
 						print('Compiling:', source)
 						data = sass.compile(string=open(source, 'r').read())
 						open(destination, 'w+').write(data)
+						os.chmod(destination, 0o644)
 
 				elif file.endswith('.coffee'):
 					name = file.replace('.coffee', '.js')
@@ -211,11 +212,13 @@ class Build:
 						print('Compiling:', source)
 						data = coffeescript.compile(open(source, 'r').read())
 						open(destination, 'w+').write(data)
+						os.chmod(destination, 0o644)
 				else:
 					destination = os.path.join(currentDir, file)
 					if self.shouldCompile(source, destination):
 						print('Copying:', source)
 						shutil.copy(source, destination)
+						os.chmod(destination, 0o644)
 
 	def shouldCompile(self, source, destination):
 		res = False
