@@ -248,8 +248,11 @@ class Build:
 
 		template = self.env.from_string(template.strip())
 		
+		sitemapIgnore = set(self.config['site'].get('sitemapIgnore', []))
+		sitemapPages = list(filter(lambda site: site not in sitemapIgnore, self.pages))
+		
 		context = {
-			'pages': self.pages,
+			'pages': sitemapPages,
 			'date': datetime.datetime.now().date().strftime('%Y-%m-%d')
 		}
 		
